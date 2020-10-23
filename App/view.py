@@ -52,6 +52,7 @@ def printMenu():
     print("2- Cargar información de crimenes")
     print("3- Consultar crimenes en un rango de fechas")
     print("4- Consultar crimenes por codigo y fecha")
+    print("5- Conocer los accidentes anteriores a una fecha")
     print("0- Salir")
     print("*******************************************")
 
@@ -92,7 +93,13 @@ while True:
                                                       offensecode)
         print("\nTotal de ofensas tipo: " + offensecode + " en esa fecha:  " +
               str(numoffenses))
-
+    elif int(inputs[0]) == 5:
+        print("\n Conocer los accidentes anteriores a una fecha ")
+        finalDate = input("Fecha (YYYY-MM-DD): ")
+        initialDate="2015-06-15"
+        total = controller.getCrimesmenosone(cont,initialDate,finalDate)
+        print("\nTotal de crimenes en el rango de fechas: " + str(total))
+        masacci=controller.maxKey(controller.accidentesporfecha(analyzer,initialDate,finalDate,total)  
     else:
         sys.exit(0)
 sys.exit(0)

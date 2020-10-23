@@ -24,7 +24,7 @@ import config as cf
 from App import model
 import datetime
 import csv
-
+from DISClib.DataStructures import rbt as RB
 """
 El controlador se encarga de mediar entre la vista y el modelo.
 Existen algunas operaciones en las que se necesita invocar
@@ -111,7 +111,23 @@ def getCrimesByRange(analyzer, initialDate, finalDate):
     finalDate = datetime.datetime.strptime(finalDate, '%Y-%m-%d')
     return model.getCrimesByRange(analyzer, initialDate.date(),
                                   finalDate.date())
+def getCrimesmenosone(analyzer, initialDate, finalDate):
+    """
+    Retorna el total de crimenes en un rango de fechas
+    """
+    initialDate = datetime.datetime.strptime(initialDate, '%Y-%m-%d')
+    NDate = datetime.datetime.strptime(finalDate, '%Y-%m-%d')
+    finalDate=NDate-datetime.timedelta(days=1)
+    return model.getCrimesByRange(analyzer, initialDate.date(),finalDate.date())
 
+def accidentesporfecha(analyzer,initialDate,finalDate,total):
+    accidentes=RB.newMap()
+    otroDate=initialDate
+    day=1
+    while day<=int(total):
+        RB.put(accidentes,otroDate,int(model.getCrimesByRange(analyzer,otroDate,otroDate)))
+        otroDate=initialDate+datetime.timedelta(days=day)
+        day=+1
 
 def getCrimesByRangeCode(analyzer, initialDate,
                          offensecode):
