@@ -24,7 +24,7 @@ import config as cf
 from App import model
 import datetime
 import csv
-from DISClib.DataStructures import rbt as RB
+
 """
 El controlador se encarga de mediar entre la vista y el modelo.
 Existen algunas operaciones en las que se necesita invocar
@@ -40,11 +40,10 @@ recae sobre el controlador.
 
 def init():
     """
-    Llama la funcion de inicializacion  del modelo.
+    Llama la funcion de inicializacion del modelo.
     """
-    # catalog es utilizado para interactuar con el modelo
-    analyzer = model.newAnalyzer()
-    return analyzer
+    Monika = model.analyzer()
+    return Monika
 
 
 # ___________________________________________________
@@ -52,89 +51,50 @@ def init():
 #  de datos en los modelos
 # ___________________________________________________
 
-def loadData(analyzer, crimesfile):
+def loadData(analyzer, file):
     """
     Carga los datos de los archivos CSV en el modelo
     """
-    crimesfile = cf.data_dir + crimesfile
-    input_file = csv.DictReader(open(crimesfile, encoding="utf-8"),
+    file = cf.data_dir + file
+    input_file = csv.DictReader(open(file, encoding="utf-8"),
                                 delimiter=",")
-    for crime in input_file:
-        model.addCrime(analyzer, crime)
+    for accidente in input_file:
+        model.cargaridaccidente(analyzer, accidente)
+
     return analyzer
 
 # ___________________________________________________
 #  Funciones para consultas
+def obtener_accidentes_por_fecha(analyzer, criterio):
+    A = model.obtener_accidentes_en_una_fecha(analyzer, criterio)
+    return A
+def estado_y_fecha_con_mas_casos(analyzer, fecha1, fecha2):
+    B = model.fecha_con_mas_casos(analyzer, fecha1, fecha2)
+    C = model.estado_con_mas_casos(analyzer, fecha1, fecha2)
+    A = {"Estado con más accidentes reportados:": C, 
+         "Fecha con más casos reportados:": str(B)}
+    return A
+
+def numero_de_accidentes_por_hora(analyzer, hora1, hora2):
+    A = model.numero_de_casos_por_rango_de_hora(analyzer, hora1, hora2)
+    return A
+
+def accidentes_antes_de_una_fecha(analyzer, fecha1, fecha2):
+    A = model.total_antes_de_una_fecha(analyzer, fecha2)
+    B = model.fecha_con_mas_casos(analyzer, fecha1, fecha2)
+    fecha = B.strftime("%Y-%m-%d")
+    C = {"Total de accidentes antes de "+ fecha2: A,
+         "Fecha con mas accidentes": fecha}
+    return C
+
+def accidentes_entre_fechas(analyzer, fecha1, fecha2):
+    A = model.total_entre_fechas(analyzer, fecha1, fecha2)
+    B = model.severidad_entre_fechas(analyzer, fecha1, fecha2)
+    C = {"Total de accidentes entre " + fecha1 + " y "+ fecha2: A,
+         "Severidad mas reportada en el rango": B}
+    return C
 # ___________________________________________________
 
-
-def crimesSize(analyzer):
-    """
-    Numero de crimenes leidos
-    """
-    return model.crimesSize(analyzer)
-
-
-def indexHeight(analyzer):
-    """
-    Altura del indice (arbol)
-    """
-    return model.indexHeight(analyzer)
-
-
-def indexSize(analyzer):
-    """
-    Numero de nodos en el arbol
-    """
-    return model.indexSize(analyzer)
-
-
-def minKey(analyzer):
-    """
-    La menor llave del arbol
-    """
-    return model.minKey(analyzer)
-
-
-def maxKey(analyzer):
-    """
-    La mayor llave del arbol
-    """
-    return model.maxKey(analyzer)
-
-
-def getCrimesByRange(analyzer, initialDate, finalDate):
-    """
-    Retorna el total de crimenes en un rango de fechas
-    """
-    initialDate = datetime.datetime.strptime(initialDate, '%Y-%m-%d')
-    finalDate = datetime.datetime.strptime(finalDate, '%Y-%m-%d')
-    return model.getCrimesByRange(analyzer, initialDate.date(),
-                                  finalDate.date())
-def getCrimesmenosone(analyzer, initialDate, finalDate):
-    """
-    Retorna el total de crimenes en un rango de fechas
-    """
-    initialDate = datetime.datetime.strptime(initialDate, '%Y-%m-%d')
-    NDate = datetime.datetime.strptime(finalDate, '%Y-%m-%d')
-    finalDate=NDate-datetime.timedelta(days=1)
-    return model.getCrimesByRange(analyzer, initialDate.date(),finalDate.date())
-
-def accidentesporfecha(analyzer,initialDate,finalDate,total):
-    accidentes=RB.newMap()
-    otroDate=initialDate
-    day=1
-    while day<=int(total):
-        RB.put(accidentes,otroDate,int(model.getCrimesByRange(analyzer,otroDate,otroDate)))
-        otroDate=initialDate+datetime.timedelta(days=day)
-        day=+1
-
-def getCrimesByRangeCode(analyzer, initialDate,
-                         offensecode):
-    """
-    Retorna el total de crimenes de un tipo especifico en una
-    fecha determinada
-    """
-    initialDate = datetime.datetime.strptime(initialDate, '%Y-%m-%d')
-    return model.getCrimesByRangeCode(analyzer, initialDate.date(),
-                                      offensecode)
+def prueba(hora1, hora2):
+    B = model.prueba(hora1, hora2)
+    return(B)

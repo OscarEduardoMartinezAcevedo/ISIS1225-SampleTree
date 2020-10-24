@@ -21,213 +21,262 @@
  """
 import config
 from DISClib.ADT import list as lt
-from DISClib.DataStructures import listiterator as it
 from DISClib.ADT import orderedmap as om
 from DISClib.DataStructures import mapentry as me
+from DISClib.DataStructures import arraylistiterator as it
+from DISClib.DataStructures import linkedlistiterator as lit
 from DISClib.ADT import map as m
-from DISClib.DataStructures import rbt as RB
+from DISClib.Algorithms.Sorting import insertionsort as ins
 import datetime
 assert config
 
 """
 En este archivo definimos los TADs que vamos a usar,
 es decir contiene los modelos con los datos en memoria
-
-Se define la estructura de un catálogo de libros.
-El catálogo tendrá  una lista para los libros.
-
-Los autores, los tags y los años se guardaran en
-tablas de simbolos.
 """
 
+
 # -----------------------------------------------------
-# API del TAD Catalogo de Libros
-# -----------------------------------------------------
-
-
-def newAnalyzer():
-    """ Inicializa el analizador
-
-    Crea una lista vacia para guardar todos los crimenes
-    Se crean indices (Maps) por los siguientes criterios:
-    -Fechas
-
-    Retorna el analizador inicializado.
-    """
-    analyzer = {'crimes': None,
-                'dateIndex': None
-                }
-
-    analyzer['crimes'] = lt.newList('SINGLE_LINKED', compareIds)
-    analyzer['dateIndex'] = om.newMap(omaptype='RBT',
-                                      comparefunction=compareDates)
+# API del TAD Catalogo de accidentes
+def analyzer():
+    analyzer = {"accidentes":None,
+                "index":None,
+                "index_horas":None}
+    analyzer["accidentes"] = m.newMap(numelements=999,
+                                 prime=109345121, 
+                                 maptype="CHAINING", 
+                                 loadfactor=1.0, 
+                                 comparefunction=comparer)
+    
+    analyzer["index"] = om.newMap(omaptype="RBT",
+                                  comparefunction=compareDates)
+    
+    analyzer["index_horas"] = om.newMap(omaptype="RBT",
+                                  comparefunction=compareDatesPerHours)
     return analyzer
+# -----------------------------------------------------
+def fecha_convertidor(dato):
+    accidentdate = datetime.datetime.strptime(dato, '%Y-%m-%d %H:%M:%S')
+    return accidentdate.date()
+def fecha_convertidor_consultas(dato):
+    accidentdate = datetime.datetime.strptime(dato, '%Y-%m-%d')
+    return accidentdate.date()
+def hora_convertidor(dato):
+    accidenthour = datetime.datetime.strptime(dato, "%Y-%m-%d %H:%M:%S")
+    return accidenthour.time()
+def hora_convertidor_consultas(dato):
+    accidenthour = datetime.datetime.strptime(dato, "%H:%M:%S")
+    return accidenthour.time()
 
+
+def redondear_horas(tiempo):
+    tiempo = tiempo.replace(second = 0)
+    minuto = tiempo.minute
+    h = tiempo.hour + 1
+    if minuto <= 15:
+        tiempo = tiempo.replace(minute= 0)
+    elif minuto > 15 and minuto <= 45:
+        tiempo = tiempo.replace(minute= 30)
+    elif minuto > 45 and minuto <= 59:
+        if h == 24:
+            h = 0
+        tiempo = tiempo.replace(hour= h) 
+        tiempo = tiempo.replace(minute= 0)
+    return tiempo
+
+
+def lessfunction(ele1, ele2):
+    if int(ele1["Severity"]) < int(ele2["Severity"]):
+        return True
+    return False
 
 # Funciones para agregar informacion al catalogo
 
-
-def addCrime(analyzer, crime):
-    """
-    """
-    lt.addLast(analyzer['crimes'], crime)
-    updateDateIndex(analyzer['dateIndex'], crime)
-    return analyzer
-
-
-def updateDateIndex(map, crime):
-    """
-    Se toma la fecha del crimen y se busca si ya existe en el arbol
-    dicha fecha.  Si es asi, se adiciona a su lista de crimenes
-    y se actualiza el indice de tipos de crimenes.
-
-    Si no se encuentra creado un nodo para esa fecha en el arbol
-    se crea y se actualiza el indice de tipos de crimenes
-    """
-    occurreddate = crime['OCCURRED_ON_DATE']
-    crimedate = datetime.datetime.strptime(occurreddate, '%Y-%m-%d %H:%M:%S')
-    entry = om.get(map, crimedate.date())
-    if entry is None:
-        datentry = newDataEntry(crime)
-        om.put(map, crimedate.date(), datentry)
+def cargaridaccidente(analyzer, accidente):
+    listac = analyzer["accidentes"]
+    index = analyzer["index"]
+    index_h = analyzer["index_horas"]
+    hora = hora_convertidor(accidente["Start_Time"])
+    fecha = fecha_convertidor(accidente["Start_Time"])
+    m.put(listac, accidente["ID"], accidente)
+    if om.contains(index, fecha)==True:
+        agregarid(index, accidente, fecha)
+    else: 
+        agregarfecha(index, accidente, fecha)
+    if om.contains(index_h, hora) == True:
+        agregaridh(index_h, accidente, hora)
     else:
-        datentry = me.getValue(entry)
-    addDateIndex(datentry, crime)
-    return map
+        agregarh(index_h, accidente, hora) 
 
+def agregarid(index, accidente, fecha):
+    a = om.get(index, fecha)
+    b = me.getValue(a)
+    lt.addLast(b, accidente["ID"])
 
-def addDateIndex(datentry, crime):
-    """
-    Actualiza un indice de tipo de crimenes.  Este indice tiene una lista
-    de crimenes y una tabla de hash cuya llave es el tipo de crimen y
-    el valor es una lista con los crimenes de dicho tipo en la fecha que
-    se está consultando (dada por el nodo del arbol)
-    """
-    lst = datentry['lstcrimes']
-    lt.addLast(lst, crime)
-    offenseIndex = datentry['offenseIndex']
-    offentry = m.get(offenseIndex, crime['OFFENSE_CODE_GROUP'])
-    if (offentry is None):
-        entry = newOffenseEntry(crime['OFFENSE_CODE_GROUP'], crime)
-        lt.addLast(entry['lstoffenses'], crime)
-        m.put(offenseIndex, crime['OFFENSE_CODE_GROUP'], entry)
-    else:
-        entry = me.getValue(offentry)
-        lt.addLast(entry['lstoffenses'], crime)
-    return datentry
+def agregaridh(index, accidente, hora):
+    hora_ll = redondear_horas(hora)
+    a = om.get(index, hora_ll)
+    b = me.getValue(a)
+    lt.addLast(b, accidente["ID"])
 
+def agregarfecha(index, accidente, fecha):
+    N = lt.newList(datastructure="ARRAY_LIST")
+    lt.addLast(N, accidente["ID"])
+    om.put(index, fecha, N)
 
-def newDataEntry(crime):
-    """
-    Crea una entrada en el indice por fechas, es decir en el arbol
-    binario.
-    """
-    entry = {'offenseIndex': None, 'lstcrimes': None}
-    entry['offenseIndex'] = m.newMap(numelements=30,
-                                     maptype='PROBING',
-                                     comparefunction=compareOffenses)
-    entry['lstcrimes'] = lt.newList('SINGLE_LINKED', compareDates)
-    return entry
-
-
-def newOffenseEntry(offensegrp, crime):
-    """
-    Crea una entrada en el indice por tipo de crimen, es decir en
-    la tabla de hash, que se encuentra en cada nodo del arbol.
-    """
-    ofentry = {'offense': None, 'lstoffenses': None}
-    ofentry['offense'] = offensegrp
-    ofentry['lstoffenses'] = lt.newList('SINGLELINKED', compareOffenses)
-    return ofentry
-
+def agregarh(index, accidente, hora):
+    hora_ll = redondear_horas(hora)
+    N = lt.newList(datastructure="ARRAY_LIST")
+    lt.addLast(N, accidente["ID"])
+    om.put(index, hora_ll, N)
 
 # ==============================
 # Funciones de consulta
 # ==============================
+def obtener_accidentes_en_una_fecha(analyzer, criterioa):
+    criterio = fecha_convertidor_consultas(criterioa)
+    d = lt.newList("ARRAY_LIST")
+    a = om.get(analyzer["index"], criterio)
+    b = me.getValue(a)
+    c = it.newIterator(b)
+    while it.hasNext(c):
+        n = it.next(c)
+        A = m.get(analyzer["accidentes"], n)
+        B = me.getValue(A)
+        lt.addLast(d, B)
+    ins.insertionSort(d, lessfunction)
+    return d
+
+def crear_lista_con_criterio(index, accidentes, criterio, fecha1, fecha2, es_fecha):
+    d = {}
+    A = om.values(index, fecha1, fecha2)
+    M = lit.newIterator(A)
+    while lit.hasNext(M):
+        L = lit.next(M)
+        N = it.newIterator(L)
+        while it.hasNext(N):
+            D = it.next(N)
+            R = m.get(accidentes, D)
+            K = me.getValue(R)
+            if es_fecha == True:
+                if fecha_convertidor(K[criterio]) in d:
+                    d[fecha_convertidor(K[criterio])] += 1
+                else:
+                    d[fecha_convertidor(K[criterio])] = 1
+            else:
+                if (K[criterio]) in d:
+                    d[(K[criterio])] += 1
+                else:
+                    d[(K[criterio])] = 1
+
+    return d
+
+def fecha_con_mas_casos(analyzer, fecha1, fecha2):
+    es_fecha = True
+    index = analyzer["index"]
+    accidentes = analyzer["accidentes"]
+    fecha1 = fecha_convertidor_consultas(fecha1)
+    fecha2 = fecha_convertidor_consultas(fecha2)
+    A = crear_lista_con_criterio(index, accidentes, "Start_Time", fecha1, fecha2, es_fecha)
+    contadorF = 0
+    mayorfecha = None
+    for a in A:
+        if A[a] > contadorF:
+            contadorF = A[a]
+            mayorfecha = a
+    return mayorfecha
 
 
-def crimesSize(analyzer):
-    """
-    Número de crimenes
-    """
-    return lt.size(analyzer['crimes'])
+def estado_con_mas_casos(analyzer, fecha1, fecha2):
+    es_fecha = False
+    index = analyzer["index"]
+    accidentes = analyzer["accidentes"]
+    fecha1 = fecha_convertidor_consultas(fecha1)
+    fecha2 = fecha_convertidor_consultas(fecha2)
+    B = crear_lista_con_criterio(index, accidentes, "State", fecha1, fecha2, es_fecha)
+    mayorestado = None
+    contadorE = 0
+    for b in B:
+        if B[b] > contadorE:
+            contadorE = B[b]
+            mayorestado = b
+    return mayorestado
+
+def numero_de_casos_por_rango_de_hora(analyzer, hora1, hora2):
+    es_fecha = False
+    index = analyzer["index_horas"]
+    accidentes = analyzer["accidentes"]
+    hora1 = hora_convertidor_consultas(hora1)
+    hora2 = hora_convertidor_consultas(hora2)
+    A = crear_lista_con_criterio(index, accidentes, "Severity", hora1, hora2, es_fecha)
+    total = 0
+    porc = {}
+    for a in A:
+        total += A[a]
+    porc["Total"] = total
+    for a in A:
+        porcentaje = round(A[a]/total * 100, 2)
+        porcentaje = str(porcentaje)+"%"
+        porc[a] = A[a]
+        porc["porcentaje"+a] = porcentaje
+    
+    return porc
 
 
-def indexHeight(analyzer):
-    """
-    Altura del arbol
-    """
-    return om.height(analyzer['dateIndex'])
+    
 
+    
+def prueba(hora1, hora2):
+    d = {"NoelleBestWaifu": str(hora_convertidor(hora1)), "JeanIsVeryThiccDude": str(hora_convertidor(hora2))}
+    return d
+    
+def total_antes_de_una_fecha(analyzer, fecha):
+    date = fecha_convertidor_consultas(fecha)
+    a = om.keys(analyzer["index"], om.minKey(analyzer["index"]), date)
+    lt.removeLast(a)
+    total = 0
+    it1 = lit.newIterator(a)
+    while lit.hasNext(it1):
+        n = lit.next(it1)
+        b = om.get(analyzer["index"], n)
+        c = me.getValue(b)
+        total += lt.size(c)
+    return total
 
-def indexSize(analyzer):
-    """
-    Numero de elementos en el indice
-    """
-    return om.size(analyzer['dateIndex'])
+def total_entre_fechas(analyzer, fecha1, fecha2):
+    date1 = fecha_convertidor_consultas(fecha1)
+    date2 = fecha_convertidor_consultas(fecha2)
+    a = om.keys(analyzer["index"], date1, date2)
+    total = 0
+    it1 = lit.newIterator(a)
+    while lit.hasNext(it1):
+        n = lit.next(it1)
+        b = om.get(analyzer["index"], n)
+        c = me.getValue(b)
+        total += lt.size(c)
+    return total
 
-
-def minKey(analyzer):
-    """
-    Llave mas pequena
-    """
-    return om.minKey(analyzer['dateIndex'])
-
-
-def maxKey(analyzer):
-    """
-    Llave mas grande
-    """
-    return om.maxKey(analyzer['dateIndex'])
-
-
-def getCrimesByRange(analyzer, initialDate, finalDate):
-    """
-    Retorna el numero de crimenes en un rago de fechas.
-    """
-    lst = om.values(analyzer['dateIndex'], initialDate, finalDate)
-    lstiterator = it.newIterator(lst)
-    totcrimes = 0
-    while (it.hasNext(lstiterator)):
-        lstdate = it.next(lstiterator)
-        totcrimes += lt.size(lstdate['lstcrimes'])
-    return totcrimes
-
-
-def getCrimesByRangeCode(analyzer, initialDate, offensecode):
-    """
-    Para una fecha determinada, retorna el numero de crimenes
-    de un tipo especifico.
-    """
-    crimedate = om.get(analyzer['dateIndex'], initialDate)
-    if crimedate['key'] is not None:
-        offensemap = me.getValue(crimedate)['offenseIndex']
-        numoffenses = m.get(offensemap, offensecode)
-        if numoffenses is not None:
-            return m.size(me.getValue(numoffenses)['lstoffenses'])
-        return 0
-
+def severidad_entre_fechas(analyzer, fecha1, fecha2):
+    index = analyzer["index"]
+    accidentes = analyzer["accidentes"]
+    fecha1 = fecha_convertidor_consultas(fecha1)
+    fecha2 = fecha_convertidor_consultas(fecha2)
+    B = crear_lista_con_criterio(index, accidentes, "Severity", fecha1, fecha2, False)
+    mayorsev = None
+    sevcounter = 0
+    for b in B:
+        if B[b] > sevcounter:
+            sevcounter = B[b]
+            mayorsev = b
+    return mayorsev
 
 # ==============================
 # Funciones de Comparacion
 # ==============================
-
-
-def compareIds(id1, id2):
-    """
-    Compara dos crimenes
-    """
-    if (id1 == id2):
-        return 0
-    elif id1 > id2:
-        return 1
-    else:
-        return -1
-
-
 def compareDates(date1, date2):
     """
-    Compara dos fechas
+    Compara dos ids de libros, id es un identificador
+    y entry una pareja llave-valor
     """
     if (date1 == date2):
         return 0
@@ -236,15 +285,23 @@ def compareDates(date1, date2):
     else:
         return -1
 
-
-def compareOffenses(offense1, offense2):
+def compareDatesPerHours(date1, date2):
     """
-    Compara dos tipos de crimenes
+    Compara dos ids de libros, id es un identificador
+    y entry una pareja llave-valor
     """
-    offense = me.getKey(offense2)
-    if (offense1 == offense):
+    if (date1 == date2):
         return 0
-    elif (offense1 > offense):
+    elif (date1 > date2):
+        return 1
+    else:
+        return -1
+
+def comparer(keyname, value):
+    entry = me.getKey(value)
+    if (keyname == entry):
+        return 0
+    elif (keyname > entry):
         return 1
     else:
         return -1
